@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, List
 
 
 # Public API endpoint
-DEFAULT_API_URL = "https://Aaron-Zhao123.github.io/benchmarked-free-ride-ci/api"
+DEFAULT_API_URL = "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api"
 
 
 class BenchmarkedFreeRide:
