@@ -303,4 +303,4 @@ Contributions welcome! To add features:
 
 ## License
 
-Part of the Sequrity project. See parent repository for license details.
+MIT License. See LICENSE file for details.

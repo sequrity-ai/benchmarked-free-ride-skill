@@ -4,8 +4,8 @@
   "description": "Auto-configure best free AI models based on benchmarked quality scores from daily CI runs",
   "author": "Sequrity",
   "license": "MIT",
-  "repository": "https://github.com/your-org/benchmarked-free-ride-skill",
-  "homepage": "https://your-username.github.io/benchmarked-free-ride-ci",
+  "repository": "https://github.com/sequrity-ai/benchmarked-free-ride-skill",
+  "homepage": "https://sequrity-ai.github.io/benchmarked-free-ride-ci",
   "keywords": [
     "free-models",
     "openrouter",
@@ -35,7 +35,7 @@
   },
   "external_apis": {
     "github_pages": {
-      "url": "https://your-username.github.io/benchmarked-free-ride-ci/api",
+      "url": "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api",
       "description": "Fetches benchmark results from public GitHub Pages API",
       "rate_limit": "No rate limit (static files)",
       "authentication": "None required"
