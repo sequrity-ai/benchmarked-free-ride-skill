@@ -62,10 +62,10 @@ class BenchmarkedFreeRide:
 
         for model in models_sorted:
             model_id = model.get("model_id", "unknown")
-            score = model.get("composite_score", 0)
-            accuracy = model.get("accuracy_percent", 0)
-            latency = model.get("avg_latency_seconds", 0)
-            context = model.get("context_length", 0) // 1000  # Convert to K
+            score = model.get("composite_score") or 0
+            accuracy = model.get("accuracy_percent") or 0
+            latency = model.get("avg_latency_seconds") or 0
+            context = (model.get("context_length") or 0) // 1000  # Convert to K
 
             print(f"{model_id:<50} {score:>6.1f}   {accuracy:>6.1f}%    {latency:>6.1f}s    {context:>6}K")
 
@@ -89,9 +89,9 @@ class BenchmarkedFreeRide:
         for entry in leaderboard:
             rank = entry.get("rank", 0)
             model_id = entry.get("model_id", "unknown")
-            score = entry.get("composite_score", 0)
-            accuracy = entry.get("accuracy_percent", 0)
-            latency = entry.get("avg_latency_seconds", 0)
+            score = entry.get("composite_score") or 0
+            accuracy = entry.get("accuracy_percent") or 0
+            latency = entry.get("avg_latency_seconds") or 0
 
             medal = medals.get(rank, f"{rank:>2}.")
             print(f"{medal:<6} {model_id:<50} {score:>6.1f}   {accuracy:>6.1f}%    {latency:>6.1f}s")
@@ -118,14 +118,14 @@ class BenchmarkedFreeRide:
         print(f"Model: {model.get('model_id', 'unknown')}")
         print(f"{'='*70}\n")
 
-        print(f"🎯 Composite Score:      {model.get('composite_score', 0):.1f}/100")
-        print(f"📊 Accuracy:             {model.get('accuracy_percent', 0):.1f}%")
-        print(f"⚡ Avg Latency:          {model.get('avg_latency_seconds', 0):.1f}s")
-        print(f"🔢 Context Length:       {model.get('context_length', 0):,} tokens")
-        print(f"📈 Quality Score:        {model.get('quality_score', 0):.2f}")
-        print(f"📥 Input Tokens:         {model.get('total_input_tokens', 0):,}")
-        print(f"📤 Output Tokens:        {model.get('total_output_tokens', 0):,}")
-        print(f"✅ Passed Tasks:         {model.get('passed_tasks', 0)}/{model.get('total_tasks', 0)}")
+        print(f"🎯 Composite Score:      {model.get('composite_score') or 0:.1f}/100")
+        print(f"📊 Accuracy:             {model.get('accuracy_percent') or 0:.1f}%")
+        print(f"⚡ Avg Latency:          {model.get('avg_latency_seconds') or 0:.1f}s")
+        print(f"🔢 Context Length:       {model.get('context_length') or 0:,} tokens")
+        print(f"📈 Quality Score:        {model.get('quality_score') or 0:.2f}")
+        print(f"📥 Input Tokens:         {model.get('total_input_tokens') or 0:,}")
+        print(f"📤 Output Tokens:        {model.get('total_output_tokens') or 0:,}")
+        print(f"✅ Passed Tasks:         {model.get('passed_tasks') or 0}/{model.get('total_tasks') or 0}")
         print(f"🕐 Benchmarked:          {model.get('benchmarked_at', 'unknown')}\n")
 
         scenarios = model.get("scenarios", [])
@@ -133,9 +133,9 @@ class BenchmarkedFreeRide:
             print("📋 Scenario Breakdown:\n")
             for scenario in scenarios:
                 name = scenario.get("name", "unknown")
-                passed = scenario.get("tasks_passed", 0)
-                total = scenario.get("tasks_total", 0)
-                avg_acc = scenario.get("avg_accuracy", 0)
+                passed = scenario.get("tasks_passed") or 0
+                total = scenario.get("tasks_total") or 0
+                avg_acc = scenario.get("avg_accuracy") or 0
                 print(f"  • {name:<30} {passed}/{total} tasks  ({avg_acc:.0f}% avg accuracy)")
 
     def auto_select(self):
@@ -153,12 +153,12 @@ class BenchmarkedFreeRide:
 
         best_model = leaderboard[0]
         model_id = best_model.get("model_id")
-        score = best_model.get("composite_score", 0)
+        score = best_model.get("composite_score") or 0
 
         print(f"\n🥇 Top model: {model_id}")
         print(f"📊 Score: {score:.1f}/100")
-        print(f"✅ Accuracy: {best_model.get('accuracy_percent', 0):.1f}%")
-        print(f"⚡ Latency: {best_model.get('avg_latency_seconds', 0):.1f}s\n")
+        print(f"✅ Accuracy: {best_model.get('accuracy_percent') or 0:.1f}%")
+        print(f"⚡ Latency: {best_model.get('avg_latency_seconds') or 0:.1f}s\n")
 
         # Configure OpenClaw
         print("🔧 Configuring OpenClaw...")
