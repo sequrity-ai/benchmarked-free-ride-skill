@@ -1,0 +1,53 @@
+{
+  "name": "benchmarked-free-ride",
+  "version": "1.0.0",
+  "description": "Auto-configure best free AI models based on benchmarked quality scores from daily CI runs",
+  "author": "Sequrity",
+  "license": "MIT",
+  "repository": "https://github.com/your-org/benchmarked-free-ride-skill",
+  "homepage": "https://your-username.github.io/benchmarked-free-ride-ci",
+  "keywords": [
+    "free-models",
+    "openrouter",
+    "benchmark",
+    "model-selection",
+    "leaderboard"
+  ],
+  "commands": {
+    "list": "List all benchmarked models with quality scores",
+    "leaderboard": "Show top 10 models ranked by composite score",
+    "details": "Show detailed benchmark results for a specific model",
+    "auto": "Automatically select and configure the best free model",
+    "help": "Show usage information"
+  },
+  "executables": {
+    "benchmarked-free-ride": "main:main"
+  },
+  "dependencies": {
+    "requests": ">=2.31.0"
+  },
+  "openclaw": {
+    "compatible": true,
+    "min_version": "1.0.0",
+    "config_paths": [
+      "agents.defaults.model"
+    ]
+  },
+  "external_apis": {
+    "github_pages": {
+      "url": "https://your-username.github.io/benchmarked-free-ride-ci/api",
+      "description": "Fetches benchmark results from public GitHub Pages API",
+      "rate_limit": "No rate limit (static files)",
+      "authentication": "None required"
+    }
+  },
+  "installation": {
+    "steps": [
+      "pip install -e ."
+    ],
+    "post_install": [
+      "Run 'benchmarked-free-ride leaderboard' to see available models",
+      "Run 'benchmarked-free-ride auto' to configure the best model"
+    ]
+  }
+}
