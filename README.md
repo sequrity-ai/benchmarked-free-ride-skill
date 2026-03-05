@@ -4,7 +4,7 @@ OpenClaw skill to fetch model quality benchmarks and auto-configure the best fre
 
 ## What This Does
 
-This skill connects to the [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) public API to:
+This skill connects to the [benchmarked-free-ride-ci](https://github.com/Aaron-Zhao123/benchmarked-free-ride-ci) public API to:
 
 1. **Fetch** daily-updated benchmark scores for free OpenRouter models
 2. **Display** leaderboards ranked by quality (accuracy, latency, token efficiency)
@@ -18,7 +18,7 @@ Unlike [FreeRide](https://github.com/openclaw/skills/tree/main/skills/shaivpidad
 
 ```bash
 # Install via clawhub (when published)
-clawhub install your-org/benchmarked-free-ride
+clawhub install Aaron-Zhao123/benchmarked-free-ride
 
 # Or install locally
 cd benchmarked-free-ride-skill
@@ -119,8 +119,8 @@ Model: google/gemini-2.0-flash-exp:free
 ### Data Source
 
 Fetches from the public GitHub Pages API:
-- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/models.json`
-- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json`
+- `https://Aaron-Zhao123.github.io/benchmarked-free-ride-ci/api/models.json`
+- `https://Aaron-Zhao123.github.io/benchmarked-free-ride-ci/api/leaderboard.json`
 
 Updated daily by automated CI benchmarks.
 
@@ -132,7 +132,7 @@ Models are ranked by **composite score** (0-100):
 - **Latency** (20% weight) - Response speed (lower is better)
 - **Token Efficiency** (10% weight) - Output tokens per task (lower is better)
 
-See [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) for benchmark methodology.
+See [benchmarked-free-ride-ci](https://github.com/Aaron-Zhao123/benchmarked-free-ride-ci) for benchmark methodology.
 
 ### Configuration
 
@@ -214,7 +214,7 @@ export BENCHMARKED_FREE_RIDE_API_URL="https://your-custom-url.com/api"
 
 ```bash
 # Clone skill repo
-git clone https://github.com/sequrity-ai/benchmarked-free-ride-skill.git
+git clone https://github.com/Aaron-Zhao123/benchmarked-free-ride-skill.git
 cd benchmarked-free-ride-skill
 
 # Install in development mode
@@ -246,9 +246,9 @@ DEFAULT_API_URL = "http://localhost:8000/api"
 **Cause:** API endpoint not reachable or GitHub Pages not deployed yet.
 
 **Fix:**
-1. Check if GitHub Pages is enabled: [https://sequrity-ai.github.io/benchmarked-free-ride-ci](https://sequrity-ai.github.io/benchmarked-free-ride-ci)
+1. Check if GitHub Pages is enabled: [https://Aaron-Zhao123.github.io/benchmarked-free-ride-ci](https://Aaron-Zhao123.github.io/benchmarked-free-ride-ci)
 2. Wait 2-3 minutes after first CI run for Pages to deploy
-3. Verify `DEFAULT_API_URL` in `main.py` matches the correct organization
+3. Verify `DEFAULT_API_URL` in `main.py` matches the correct GitHub username
 
 ### "Failed to configure model"
 
@@ -295,7 +295,7 @@ Contributions welcome! To add features:
 
 ## Related Projects
 
-- [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) - CI runner that generates benchmarks
+- [benchmarked-free-ride-ci](https://github.com/Aaron-Zhao123/benchmarked-free-ride-ci) - CI runner that generates benchmarks
 - [FreeRide](https://github.com/openclaw/skills/tree/main/skills/shaivpidadi/free-ride) - Original inspiration
 - [OpenClaw](https://github.com/openclaw/openclaw) - AI agent framework
 
