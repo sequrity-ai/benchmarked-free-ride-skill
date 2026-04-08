@@ -1,116 +1,126 @@
 # Benchmarked Free Ride Skill
 
-OpenClaw skill to fetch model quality benchmarks and auto-configure the best free model.
+OpenClaw skill to fetch model quality benchmarks and recommend the best free OpenRouter model.
+Unlike other model pickers, rankings are based on **actual task performance** from daily CI benchmarks.
 
 ## What This Does
 
 This skill connects to the [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) public API to:
 
-1. **Fetch** daily-updated benchmark scores for free OpenRouter models
-2. **Display** leaderboards ranked by quality (accuracy, latency, token efficiency)
-3. **Auto-configure** OpenClaw to use the best-performing free model
-
-Unlike [FreeRide](https://github.com/openclaw/skills/tree/main/skills/shaivpidadi/free-ride) which ranks by context length and recency, this skill selects models based on **actual benchmark performance**.
+1. **Recommend** the best free OpenRouter model by utility, security, speed, or a balanced score
+2. **Show** detailed per-scenario benchmark breakdowns for any model
+3. **Auto-configure** OpenClaw to use the top-performing free model
 
 ---
 
 ## Installation
 
 ```bash
-# Install via clawhub (when published)
+# Install via clawhub (recommended)
 clawhub install sequrity-ai/benchmarked-free-ride
 
-# Or install locally
-cd benchmarked-free-ride-skill
-pip install -e .
+# Or install locally from this repo
+openclaw skills install ./
 ```
 
 ---
 
 ## Usage
 
-### Show Leaderboard
+All commands use `curl` + `jq` against the live leaderboard API. Run them directly in your terminal.
+
+### Top 5 models by utility score (default)
 
 ```bash
-benchmarked-free-ride leaderboard
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | \
+  jq -r '.leaderboard
+    | map(select(.model_id | contains(":free")) | select(.is_benchmarked == true))
+    | sort_by(-.composite_score) | .[:5] | to_entries[]
+    | "\(.key + 1). \(.value.model_id)\n   Score: \(.value.composite_score) | Security: \(.value.cracker_security_rate // "n/a") | Latency: \(.value.avg_latency_seconds // "n/a")s"'
 ```
 
-Output:
-```
-🏆 Fetching top 10 models...
-
-🕐 Last updated: 2026-03-02T10:30:00Z
-
-Rank   Model ID                                           Score    Accuracy   Latency
--------------------------------------------------------------------------------------
-🥇     google/gemini-2.0-flash-exp:free                    85.3      88.9%      3.2s
-🥈     meta-llama/llama-3.2-3b-instruct:free              82.1      85.0%      2.8s
-🥉     mistralai/mistral-7b-instruct:free                 78.4      80.0%      4.1s
-4.     qwen/qwen-2.5-7b-instruct:free                     75.2      76.7%      3.9s
-...
-
-💡 Use 'benchmarked-free-ride auto' to configure the top model
-```
-
-### Auto-Select Best Model
+### --secure — Top models by prompt injection resistance
 
 ```bash
-benchmarked-free-ride auto
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | \
+  jq -r '.leaderboard
+    | map(select(.model_id | contains(":free")) | select(.is_benchmarked == true) | select(.cracker_security_rate != null))
+    | sort_by(-.cracker_security_rate) | .[:5] | to_entries[]
+    | "\(.key + 1). \(.value.model_id)\n   Security: \(.value.cracker_security_rate)% | Score: \(.value.composite_score) | Latency: \(.value.avg_latency_seconds // "n/a")s"'
 ```
 
-Output:
-```
-🚀 Auto-selecting the best free model...
-
-🥇 Top model: google/gemini-2.0-flash-exp:free
-📊 Score: 85.3/100
-✅ Accuracy: 88.9%
-⚡ Latency: 3.2s
-
-🔧 Configuring OpenClaw...
-✅ Successfully configured: google/gemini-2.0-flash-exp:free
-
-💡 Restart your OpenClaw agent to use the new model
-```
-
-### List All Models
+### --fast — Top models by response latency
 
 ```bash
-benchmarked-free-ride list
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | \
+  jq -r '.leaderboard
+    | map(select(.model_id | contains(":free")) | select(.is_benchmarked == true) | select(.avg_latency_seconds != null))
+    | sort_by(.avg_latency_seconds) | .[:5] | to_entries[]
+    | "\(.key + 1). \(.value.model_id)\n   Latency: \(.value.avg_latency_seconds)s | Score: \(.value.composite_score) | Security: \(.value.cracker_security_rate // "n/a")"'
 ```
 
-Shows all benchmarked models with detailed stats.
-
-### Show Model Details
+### --balanced — Weighted score (utility 50% + security 30% + speed 20%)
 
 ```bash
-benchmarked-free-ride details "google/gemini-2.0-flash-exp:free"
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | \
+  jq -r '.leaderboard
+    | map(select(.model_id | contains(":free")) | select(.is_benchmarked == true))
+    | map(. + {balanced_score: ((.composite_score // 0) * 0.5 + (.cracker_security_rate // 50) * 0.3 + (if .avg_latency_seconds != null then (100 - (.avg_latency_seconds * 2 | if . > 100 then 100 else . end)) else 50 end) * 0.2)})
+    | sort_by(-.balanced_score) | .[:5] | to_entries[]
+    | "\(.key + 1). \(.value.model_id)\n   Balanced: \(.value.balanced_score | round) | Score: \(.value.composite_score) | Security: \(.value.cracker_security_rate // "n/a") | Latency: \(.value.avg_latency_seconds // "n/a")s"'
 ```
 
-Output:
+### --json — Machine-readable output for scripting
+
+```bash
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | \
+  jq '[.leaderboard | map(select(.model_id | contains(":free")) | select(.is_benchmarked == true)) | sort_by(-.composite_score) | .[:5] | .[] | {model_id, composite_score, cracker_security_rate, avg_latency_seconds, context_length}]'
 ```
-🔍 Fetching details for: google/gemini-2.0-flash-exp:free
 
-======================================================================
-Model: google/gemini-2.0-flash-exp:free
-======================================================================
+### --details \<model_id\> — Detailed breakdown for a specific model
 
-🎯 Composite Score:      85.3/100
-📊 Accuracy:             88.9%
-⚡ Avg Latency:          3.2s
-🔢 Context Length:       1,048,576 tokens
-📈 Quality Score:        0.82
-📥 Input Tokens:         12,450
-📤 Output Tokens:        3,210
-✅ Passed Tasks:         8/9
-🕐 Benchmarked:          2026-03-02T08:15:30Z
-
-📋 Scenario Breakdown:
-
-  • File Manipulation               3/3 tasks  (100% avg accuracy)
-  • Weather                         3/3 tasks  (100% avg accuracy)
-  • Web Search                      2/3 tasks  (67% avg accuracy)
+```bash
+MODEL_ID="google/gemini-2.0-flash-exp:free"   # replace with target model
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/models.json" | \
+  jq -r --arg id "$MODEL_ID" '
+    .models | map(select(.model_id == $id))
+    | if length == 0 then "Model not found: \($id)"
+      else .[0] | (
+        "Model:    \(.model_id)",
+        "Score:    \(.composite_score // "n/a") | Accuracy: \(.accuracy_percent // "n/a")% | Latency: \(.avg_latency_seconds // "n/a")s",
+        "Context:  \((.context_length // 0) | tostring) tokens",
+        "Tasks:    \(.passed_tasks // "?")/\(.total_tasks // "?")",
+        "Updated:  \(.benchmarked_at // "unknown")",
+        "",
+        "Scenario Breakdown:",
+        (.scenarios // [] | to_entries[] | "  \(.key+1). \(.value.name): \(.value.tasks_passed)/\(.value.tasks_total) tasks  (\(.value.avg_accuracy // 0 | round)% accuracy)")
+      ) end
+  '
 ```
+
+### --auto — Auto-configure OpenClaw with the top model
+
+```bash
+MODEL_ID=$(curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | \
+  jq -r '[.leaderboard | map(select(.model_id | contains(":free")) | select(.is_benchmarked == true)) | sort_by(-.composite_score)][0][0].model_id')
+echo "Top model: $MODEL_ID"
+openclaw config set agents.defaults.model.primary "openrouter/$MODEL_ID"
+echo "Configured OpenClaw to use: $MODEL_ID"
+```
+
+---
+
+## Quick Reference
+
+| Goal | Flag | Sort key |
+|------|------|----------|
+| Best overall utility | *(default)* | `composite_score` ↓ |
+| Most secure (anti-injection) | `--secure` | `cracker_security_rate` ↓ |
+| Fastest responses | `--fast` | `avg_latency_seconds` ↑ |
+| Balanced recommendation | `--balanced` | weighted composite ↓ |
+| Scripting/automation | `--json` | composite_score ↓ |
+| Full model breakdown | `--details <model_id>` | per-scenario accuracy |
+| Auto-configure OpenClaw | `--auto` | top composite_score |
 
 ---
 
@@ -119,35 +129,20 @@ Model: google/gemini-2.0-flash-exp:free
 ### Data Source
 
 Fetches from the public GitHub Pages API:
-- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/models.json`
-- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json`
+- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json` — ranked leaderboard
+- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/models.json` — detailed per-model stats
 
-Updated daily by automated CI benchmarks.
+Updated every 2 days by automated CI benchmarks.
 
 ### Scoring System
 
-Models are ranked by **composite score** (0-100):
+Models are ranked by **composite score** (0–100):
 
-- **Accuracy** (70% weight) - Task success rate across benchmarks
-- **Latency** (20% weight) - Response speed (lower is better)
-- **Token Efficiency** (10% weight) - Output tokens per task (lower is better)
+- **Accuracy** (70% weight) — Task success rate across benchmarks
+- **Latency** (20% weight) — Response speed (lower is better)
+- **Token Efficiency** (10% weight) — Output tokens per task (lower is better)
 
-See [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) for benchmark methodology.
-
-### Configuration
-
-The `auto` command modifies OpenClaw's config file:
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "openrouter/google/gemini-2.0-flash-exp:free"
-      }
-    }
-  }
-}
-```
+See [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) for methodology.
 
 ---
 
@@ -157,54 +152,13 @@ The `auto` command modifies OpenClaw's config file:
 |---------|----------|----------------------|
 | Model discovery | ✅ OpenRouter API | ✅ OpenRouter API |
 | Ranking criteria | Context, capabilities, recency | **Actual benchmark performance** |
-| Auto-configure | ✅ | ✅ |
-| Rate-limit rotation | ✅ | ❌ (future work) |
-| Daily updates | ❌ | ✅ (via CI) |
-| Public leaderboard | ❌ | ✅ (GitHub Pages) |
-
-**Use FreeRide when:** You want maximum context length and automatic fallback rotation.
-
-**Use Benchmarked Free Ride when:** You want the model that performs best on real tasks.
-
----
-
-## API Reference
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `list` | List all benchmarked models with scores |
-| `leaderboard` | Show top 10 models ranked by score |
-| `details <model_id>` | Show detailed stats for a specific model |
-| `auto` | Auto-select and configure the best model |
-| `help` | Show usage information |
-
-### JSON API Endpoints
-
-**GET** `/api/models.json`
-- All benchmarked models with detailed stats
-
-**GET** `/api/leaderboard.json`
-- Top models ranked by composite score
-
-**GET** `/api/history/YYYY-MM-DD.json`
-- Historical daily snapshots
-
----
-
-## Configuration
-
-The API URL can be customized by editing `main.py`:
-
-```python
-DEFAULT_API_URL = "https://your-custom-url.com/api"
-```
-
-Or set via environment variable:
-```bash
-export BENCHMARKED_FREE_RIDE_API_URL="https://your-custom-url.com/api"
-```
+| Security ranking | ✅ (`--secure`) | ✅ (`--secure`) |
+| Speed ranking | ✅ (`--fast`) | ✅ (`--fast`) |
+| Balanced ranking | ✅ (`--balanced`) | ✅ (`--balanced`) |
+| Per-model breakdown | ❌ | ✅ (`--details`) |
+| Auto-configure OpenClaw | ❌ | ✅ (`--auto`) |
+| Daily CI updates | ✅ (same source) | ✅ (same source) |
+| Public leaderboard | ✅ | ✅ |
 
 ---
 
@@ -217,87 +171,74 @@ export BENCHMARKED_FREE_RIDE_API_URL="https://your-custom-url.com/api"
 git clone https://github.com/sequrity-ai/benchmarked-free-ride-skill.git
 cd benchmarked-free-ride-skill
 
-# Install in development mode
-pip install -e .
-
-# Test commands
-benchmarked-free-ride leaderboard
+# Test a command directly
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | \
+  jq '.leaderboard | length'
 ```
 
-### Mock API for Testing
-
-To test without internet, create a local API:
+### Publishing to ClawHub
 
 ```bash
-# Start simple HTTP server
-cd /path/to/benchmarked-free-ride-ci/docs
-python3 -m http.server 8000
+clawhub skill publish . \
+  --slug benchmarked-free-ride \
+  --name "Benchmarked Free Ride" \
+  --version 1.1.0 \
+  --changelog "Add SKILL.md format with --details and --auto commands; align with free-ride reference skill" \
+  --tags "free-models,openrouter,benchmark,model-selection,leaderboard"
+```
 
-# Update main.py temporarily
-DEFAULT_API_URL = "http://localhost:8000/api"
+Run with `--dry-run` first to validate the manifest before publishing.
+
+### Python CLI (legacy)
+
+The original Python package (`main.py`) is still available for backwards compatibility:
+
+```bash
+pip install -e .
+benchmarked-free-ride leaderboard
+benchmarked-free-ride details "google/gemini-2.0-flash-exp:free"
+benchmarked-free-ride auto
 ```
 
 ---
 
 ## Troubleshooting
 
-### "Error fetching models"
+### "null" model ID from --auto
 
-**Cause:** API endpoint not reachable or GitHub Pages not deployed yet.
+**Cause:** The leaderboard has no models matching `:free` + `is_benchmarked == true`.
 
-**Fix:**
-1. Check if GitHub Pages is enabled: [https://sequrity-ai.github.io/benchmarked-free-ride-ci](https://sequrity-ai.github.io/benchmarked-free-ride-ci)
-2. Wait 2-3 minutes after first CI run for Pages to deploy
-3. Verify `DEFAULT_API_URL` in `main.py` matches the correct organization
+**Fix:** Check the live leaderboard first:
+```bash
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | jq '.leaderboard | length'
+```
 
-### "Failed to configure model"
+### "Model not found" in --details
 
-**Cause:** OpenClaw config file not found or permissions issue.
+**Cause:** Model ID typo or model not in `models.json` (only benchmarked models appear).
+
+**Fix:** Check available model IDs:
+```bash
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/models.json" | jq -r '.models[].model_id'
+```
+
+### "Failed to configure model" from --auto
+
+**Cause:** `openclaw` CLI not on PATH or not logged in.
 
 **Fix:**
 ```bash
-# Ensure OpenClaw is initialized
-openclaw init
-
-# Check config file exists
-ls ~/.openclaw/config.json
-
-# Manually set model
-openclaw config set model "openrouter/model-id"
+which openclaw   # verify it's on PATH
+openclaw login   # re-authenticate if needed
 ```
-
-### "Model not found"
-
-**Cause:** Model ID typo or model not yet benchmarked.
-
-**Fix:**
-```bash
-# List all available models
-benchmarked-free-ride list
-
-# Copy exact model ID (case-sensitive)
-benchmarked-free-ride details "google/gemini-2.0-flash-exp:free"
-```
-
----
-
-## Contributing
-
-Contributions welcome! To add features:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add your changes
-4. Test with `pip install -e .`
-5. Submit a pull request
 
 ---
 
 ## Related Projects
 
-- [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) - CI runner that generates benchmarks
-- [FreeRide](https://github.com/openclaw/skills/tree/main/skills/shaivpidadi/free-ride) - Original inspiration
-- [OpenClaw](https://github.com/openclaw/openclaw) - AI agent framework
+- [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) — CI runner that generates benchmarks
+- [FreeRide](https://github.com/openclaw/skills/tree/main/skills/shaivpidadi/free-ride) — Reference skill this was modeled after
+- [OpenClaw](https://github.com/openclaw/openclaw) — AI agent framework
 
 ---
 

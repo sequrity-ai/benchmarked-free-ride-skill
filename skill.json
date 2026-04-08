@@ -13,12 +13,15 @@
     "model-selection",
     "leaderboard"
   ],
+  "skill_md": "SKILL.md",
   "commands": {
-    "list": "List all benchmarked models with quality scores",
-    "leaderboard": "Show top 10 models ranked by composite score",
-    "details": "Show detailed benchmark results for a specific model",
-    "auto": "Automatically select and configure the best free model",
-    "help": "Show usage information"
+    "default":    "Top 5 free models by composite (utility) score",
+    "--secure":   "Top 5 free models by prompt injection resistance (cracker_security_rate)",
+    "--fast":     "Top 5 free models by response latency",
+    "--balanced": "Top 5 by weighted score (utility 50% + security 30% + speed 20%)",
+    "--json":     "Machine-readable top 5 for scripting/automation",
+    "--details":  "Detailed benchmark breakdown for a specific model ID",
+    "--auto":     "Fetch top benchmarked model and configure OpenClaw to use it"
   },
   "executables": {
     "benchmarked-free-ride": "main:main"
