@@ -2,268 +2,373 @@
 """
 Benchmarked Free Ride - OpenClaw Skill
 
-Fetches model quality benchmarks and auto-configures the best free model.
+Auto-configure best free AI models based on benchmarked quality scores.
+Rankings come from benchmarked-free-ride-ci (actual task performance),
+not proxies like context length or recency.
 """
 
 import sys
 import json
-import requests
+import subprocess
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional
 
-
-# Public API endpoint
 DEFAULT_API_URL = "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api"
+DEFAULT_FALLBACK_COUNT = 5
 
 
 class BenchmarkedFreeRide:
     def __init__(self, api_url: str = DEFAULT_API_URL):
         self.api_url = api_url.rstrip("/")
+        self._leaderboard_cache: Optional[list] = None
 
-    def fetch_models(self) -> Optional[Dict[str, Any]]:
-        """Fetch all benchmarked models from API."""
-        try:
-            response = requests.get(f"{self.api_url}/models.json", timeout=10)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            print(f"❌ Error fetching models: {e}")
-            return None
+    # ── Data fetching ─────────────────────────────────────────────────────────
 
-    def fetch_leaderboard(self) -> Optional[Dict[str, Any]]:
-        """Fetch leaderboard from API."""
+    def fetch_leaderboard(self, force: bool = False) -> list:
+        """Fetch and cache the ranked list of free models."""
+        if self._leaderboard_cache is not None and not force:
+            return self._leaderboard_cache
+
+        import requests
         try:
             response = requests.get(f"{self.api_url}/leaderboard.json", timeout=10)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
         except Exception as e:
             print(f"❌ Error fetching leaderboard: {e}")
-            return None
+            sys.exit(1)
 
-    def list_models(self):
-        """List all benchmarked models with scores."""
-        print("📊 Fetching benchmarked models...")
-        data = self.fetch_models()
+        all_models = data.get("leaderboard", [])
+        free_models = [
+            m for m in all_models
+            if m.get("model_id", "").endswith(":free") and m.get("is_benchmarked", False)
+        ]
+        self._leaderboard_cache = free_models
+        return free_models
 
-        if not data:
-            return
+    def _sort_by_security(self, models: list) -> list:
+        """Sort models by cracker_security_rate (desc), models without score go last."""
+        with_score = [m for m in models if m.get("cracker_security_rate") is not None]
+        without_score = [m for m in models if m.get("cracker_security_rate") is None]
+        with_score.sort(key=lambda m: m["cracker_security_rate"], reverse=True)
+        return with_score + without_score
 
-        models = data.get("models", [])
-        generated_at = data.get("generated_at", "unknown")
+    # ── Config read/write ─────────────────────────────────────────────────────
 
-        print(f"\n🕐 Last updated: {generated_at}")
-        print(f"📈 Total models: {len(models)}\n")
-
-        # Sort by composite score
-        models_sorted = sorted(models, key=lambda m: m.get("composite_score", 0), reverse=True)
-
-        print(f"{'Model ID':<50} {'Score':<8} {'Accuracy':<10} {'Latency':<10} {'Context':<10}")
-        print("-" * 90)
-
-        for model in models_sorted:
-            model_id = model.get("model_id", "unknown")
-            score = model.get("composite_score") or 0
-            accuracy = model.get("accuracy_percent") or 0
-            latency = model.get("avg_latency_seconds") or 0
-            context = (model.get("context_length") or 0) // 1000  # Convert to K
-
-            print(f"{model_id:<50} {score:>6.1f}   {accuracy:>6.1f}%    {latency:>6.1f}s    {context:>6}K")
-
-    def show_leaderboard(self, top_n: int = 10):
-        """Show top N models by composite score."""
-        print(f"🏆 Fetching top {top_n} models...")
-        data = self.fetch_leaderboard()
-
-        if not data:
-            return
-
-        leaderboard = data.get("leaderboard", [])[:top_n]
-        generated_at = data.get("generated_at", "unknown")
-
-        print(f"\n🕐 Last updated: {generated_at}\n")
-        print(f"{'Rank':<6} {'Model ID':<50} {'Score':<8} {'Accuracy':<10} {'Latency':<10}")
-        print("-" * 85)
-
-        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
-
-        for entry in leaderboard:
-            rank = entry.get("rank", 0)
-            model_id = entry.get("model_id", "unknown")
-            score = entry.get("composite_score") or 0
-            accuracy = entry.get("accuracy_percent") or 0
-            latency = entry.get("avg_latency_seconds") or 0
-
-            medal = medals.get(rank, f"{rank:>2}.")
-            print(f"{medal:<6} {model_id:<50} {score:>6.1f}   {accuracy:>6.1f}%    {latency:>6.1f}s")
-
-        print(f"\n💡 Use 'benchmarked-free-ride auto' to configure the top model")
-
-    def model_details(self, model_id: str):
-        """Show detailed benchmark results for a specific model."""
-        print(f"🔍 Fetching details for: {model_id}")
-        data = self.fetch_models()
-
-        if not data:
-            return
-
-        models = data.get("models", [])
-        model = next((m for m in models if m.get("model_id") == model_id), None)
-
-        if not model:
-            print(f"❌ Model not found: {model_id}")
-            print(f"\n💡 Use 'benchmarked-free-ride list' to see all available models")
-            return
-
-        print(f"\n{'='*70}")
-        print(f"Model: {model.get('model_id', 'unknown')}")
-        print(f"{'='*70}\n")
-
-        print(f"🎯 Composite Score:      {model.get('composite_score') or 0:.1f}/100")
-        print(f"📊 Accuracy:             {model.get('accuracy_percent') or 0:.1f}%")
-        print(f"⚡ Avg Latency:          {model.get('avg_latency_seconds') or 0:.1f}s")
-        print(f"🔢 Context Length:       {model.get('context_length') or 0:,} tokens")
-        print(f"📈 Quality Score:        {model.get('quality_score') or 0:.2f}")
-        print(f"📥 Input Tokens:         {model.get('total_input_tokens') or 0:,}")
-        print(f"📤 Output Tokens:        {model.get('total_output_tokens') or 0:,}")
-        print(f"✅ Passed Tasks:         {model.get('passed_tasks') or 0}/{model.get('total_tasks') or 0}")
-        print(f"🕐 Benchmarked:          {model.get('benchmarked_at', 'unknown')}\n")
-
-        scenarios = model.get("scenarios", [])
-        if scenarios:
-            print("📋 Scenario Breakdown:\n")
-            for scenario in scenarios:
-                name = scenario.get("name", "unknown")
-                passed = scenario.get("tasks_passed") or 0
-                total = scenario.get("tasks_total") or 0
-                avg_acc = scenario.get("avg_accuracy") or 0
-                print(f"  • {name:<30} {passed}/{total} tasks  ({avg_acc:.0f}% avg accuracy)")
-
-    def auto_select(self):
-        """Automatically configure the best free model."""
-        print("🚀 Auto-selecting the best free model...")
-        data = self.fetch_leaderboard()
-
-        if not data:
-            return
-
-        leaderboard = data.get("leaderboard", [])
-        if not leaderboard:
-            print("❌ No models found in leaderboard")
-            return
-
-        best_model = leaderboard[0]
-        model_id = best_model.get("model_id")
-        score = best_model.get("composite_score") or 0
-
-        print(f"\n🥇 Top model: {model_id}")
-        print(f"📊 Score: {score:.1f}/100")
-        print(f"✅ Accuracy: {best_model.get('accuracy_percent') or 0:.1f}%")
-        print(f"⚡ Latency: {best_model.get('avg_latency_seconds') or 0:.1f}s\n")
-
-        # Configure OpenClaw
-        print("🔧 Configuring OpenClaw...")
-        if self._configure_openclaw_model(model_id):
-            print(f"✅ Successfully configured: {model_id}")
-            print(f"\n💡 Restart your OpenClaw agent to use the new model")
-        else:
-            print("❌ Failed to configure model")
-
-    def _configure_openclaw_model(self, model_id: str) -> bool:
-        """Configure OpenClaw to use the specified model."""
+    def _read_config(self) -> dict:
+        """Read current OpenClaw config."""
+        config_path = Path.home() / ".openclaw" / "config.json"
+        if not config_path.exists():
+            return {}
         try:
-            import subprocess
+            with open(config_path) as f:
+                return json.load(f)
+        except Exception:
+            return {}
 
-            # Try CLI method first
+    def _write_config(self, primary: str, fallbacks: list[str]) -> bool:
+        """Write primary + fallback model config to ~/.openclaw/config.json."""
+        # Try CLI first
+        try:
+            all_models = [primary] + fallbacks
             result = subprocess.run(
-                ["openclaw", "config", "set", "model", f"openrouter/{model_id}"],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ["openclaw", "config", "set", "agents.defaults.model.primary", primary],
+                capture_output=True, text=True, timeout=15,
             )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr)
 
-            if result.returncode == 0:
-                return True
+            fb_json = json.dumps(fallbacks)
+            result = subprocess.run(
+                ["openclaw", "config", "set", "agents.defaults.model.fallbacks", fb_json],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr)
 
-            # Fallback: modify config file directly
-            return self._configure_via_config_file(model_id)
-
-        except Exception as e:
-            print(f"Error: {e}")
-            return False
-
-    def _configure_via_config_file(self, model_id: str) -> bool:
-        """Fallback: directly modify OpenClaw config file."""
-        try:
-            config_path = Path.home() / ".openclaw" / "config.json"
-
-            if not config_path.exists():
-                print(f"❌ Config file not found at {config_path}")
-                return False
-
-            with open(config_path, "r") as f:
-                config = json.load(f)
-
-            # Set the model
-            if "agents" not in config:
-                config["agents"] = {}
-            if "defaults" not in config["agents"]:
-                config["agents"]["defaults"] = {}
-            if "model" not in config["agents"]["defaults"]:
-                config["agents"]["defaults"]["model"] = {}
-
-            config["agents"]["defaults"]["model"]["primary"] = f"openrouter/{model_id}"
-
-            with open(config_path, "w") as f:
-                json.dump(config, f, indent=2)
+            models_json = json.dumps(all_models)
+            result = subprocess.run(
+                ["openclaw", "config", "set", "agents.defaults.models", models_json],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr)
 
             return True
 
+        except Exception:
+            pass
+
+        # Fallback: direct config file edit
+        return self._write_config_file(primary, fallbacks)
+
+    def _write_config_file(self, primary: str, fallbacks: list[str]) -> bool:
+        """Directly modify ~/.openclaw/config.json."""
+        config_path = Path.home() / ".openclaw" / "config.json"
+        try:
+            config = self._read_config()
+            config.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})
+            config["agents"]["defaults"]["model"]["primary"] = primary
+            config["agents"]["defaults"]["model"]["fallbacks"] = fallbacks
+            config["agents"]["defaults"]["models"] = [primary] + fallbacks
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+            return True
         except Exception as e:
-            print(f"Error modifying config: {e}")
+            print(f"❌ Failed to write config: {e}")
             return False
+
+    def _write_primary_only(self, primary: str) -> bool:
+        """Set only the primary model, preserve existing fallbacks."""
+        try:
+            result = subprocess.run(
+                ["openclaw", "config", "set", "agents.defaults.model.primary", primary],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                return True
+        except Exception:
+            pass
+
+        config_path = Path.home() / ".openclaw" / "config.json"
+        try:
+            config = self._read_config()
+            config.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})
+            config["agents"]["defaults"]["model"]["primary"] = primary
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"❌ Failed to write config: {e}")
+            return False
+
+    # ── Commands ──────────────────────────────────────────────────────────────
+
+    def cmd_auto(self, keep_primary: bool = False, count: int = DEFAULT_FALLBACK_COUNT, secure: bool = False):
+        """Auto-configure best free model + fallbacks."""
+        mode_label = "security rating" if secure else "benchmark score"
+        print(f"🔍 Fetching top free models by {mode_label}...")
+        models = self.fetch_leaderboard()
+
+        if secure:
+            models = self._sort_by_security(models)
+        # else: already sorted by composite_score from the API
+
+        if not models:
+            print("❌ No benchmarked free models found.")
+            sys.exit(1)
+
+        top = models[0]
+        top_id = f"openrouter/{top['model_id']}"
+
+        if keep_primary:
+            # Preserve existing primary, update fallbacks only
+            config = self._read_config()
+            existing_primary = (
+                config.get("agents", {}).get("defaults", {}).get("model", {}).get("primary")
+            )
+            if existing_primary:
+                primary = existing_primary
+                candidates = [m for m in models if f"openrouter/{m['model_id']}" != existing_primary]
+                fallbacks = [f"openrouter/{m['model_id']}" for m in candidates[:count]]
+                print(f"🔒 Keeping primary: {existing_primary}")
+            else:
+                primary = top_id
+                fallbacks = [f"openrouter/{m['model_id']}" for m in models[1:count + 1]]
+        else:
+            primary = top_id
+            fallbacks = [f"openrouter/{m['model_id']}" for m in models[1:count + 1]]
+
+        print(f"\n🥇 Primary:   {primary}")
+        if fallbacks:
+            print("📋 Fallbacks:")
+            for i, fb in enumerate(fallbacks, 1):
+                print(f"   {i}. {fb}")
+
+        print("\n🔧 Configuring OpenClaw...")
+        if self._write_config(primary, fallbacks):
+            print("✅ Done. Restart your OpenClaw agent to apply.")
+        else:
+            print("❌ Failed to configure model.")
+            sys.exit(1)
+
+    def cmd_list(self, secure: bool = False):
+        """List available free models ranked by score."""
+        mode_label = "security rating" if secure else "benchmark score"
+        print(f"📊 Free models ranked by {mode_label}:\n")
+        models = self.fetch_leaderboard()
+
+        if secure:
+            models = self._sort_by_security(models)
+
+        header = f"{'Rank':<5} {'Model ID':<52} {'Score':<8} {'Security':<10} {'Latency'}"
+        print(header)
+        print("-" * 90)
+
+        medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+        for i, m in enumerate(models, 1):
+            rank = medals.get(i, f"{i:>2}. ")
+            model_id = m.get("model_id", "unknown")
+            score = m.get("composite_score") or 0
+            security = m.get("cracker_security_rate")
+            sec_str = f"{security:.0f}%" if security is not None else "n/a"
+            latency = m.get("avg_latency_seconds")
+            lat_str = f"{latency:.1f}s" if latency is not None else "n/a"
+            print(f"{rank:<5} {model_id:<52} {score:>6.1f}   {sec_str:<10} {lat_str}")
+
+    def cmd_switch(self, model_id: str):
+        """Switch primary model to a specific model."""
+        # Normalize: strip openrouter/ prefix if provided
+        clean_id = model_id.removeprefix("openrouter/")
+        full_id = f"openrouter/{clean_id}"
+
+        # Validate model exists
+        models = self.fetch_leaderboard()
+        known_ids = [m.get("model_id", "") for m in models]
+        if clean_id not in known_ids:
+            print(f"❌ Model not found: {clean_id}")
+            print("   Run 'benchmarked-free-ride list' to see available models.")
+            sys.exit(1)
+
+        print(f"🔀 Switching primary model to: {full_id}")
+        if self._write_primary_only(full_id):
+            print("✅ Done. Restart your OpenClaw agent to apply.")
+        else:
+            print("❌ Failed to switch model.")
+            sys.exit(1)
+
+    def cmd_status(self):
+        """Show current model configuration."""
+        config = self._read_config()
+        model_cfg = config.get("agents", {}).get("defaults", {}).get("model", {})
+        primary = model_cfg.get("primary", "(not set)")
+        fallbacks = model_cfg.get("fallbacks", [])
+
+        print("📋 Current model configuration:\n")
+        print(f"  Primary:   {primary}")
+        if fallbacks:
+            print("  Fallbacks:")
+            for fb in fallbacks:
+                print(f"    • {fb}")
+        else:
+            print("  Fallbacks: (none configured)")
+
+    def cmd_fallbacks(self, count: int = DEFAULT_FALLBACK_COUNT, secure: bool = False):
+        """Update fallback models only, keeping existing primary."""
+        mode_label = "security rating" if secure else "benchmark score"
+        print(f"🔍 Fetching fallback models by {mode_label}...")
+        models = self.fetch_leaderboard()
+
+        if secure:
+            models = self._sort_by_security(models)
+
+        config = self._read_config()
+        existing_primary = (
+            config.get("agents", {}).get("defaults", {}).get("model", {}).get("primary")
+        )
+
+        candidates = [m for m in models if f"openrouter/{m['model_id']}" != existing_primary]
+        fallbacks = [f"openrouter/{m['model_id']}" for m in candidates[:count]]
+        primary = existing_primary or f"openrouter/{models[0]['model_id']}"
+
+        print(f"\n🔒 Primary (unchanged): {primary}")
+        print("📋 New fallbacks:")
+        for i, fb in enumerate(fallbacks, 1):
+            print(f"   {i}. {fb}")
+
+        print("\n🔧 Updating fallbacks...")
+        if self._write_config(primary, fallbacks):
+            print("✅ Done. Restart your OpenClaw agent to apply.")
+        else:
+            print("❌ Failed to update fallbacks.")
+            sys.exit(1)
+
+    def cmd_refresh(self):
+        """Force refresh cached model list."""
+        print("🔄 Refreshing model list from API...")
+        models = self.fetch_leaderboard(force=True)
+        print(f"✅ Fetched {len(models)} benchmarked free models.")
+        top = models[0] if models else None
+        if top:
+            print(f"   Top model: {top.get('model_id')} (score: {top.get('composite_score')})")
 
 
 def print_usage():
-    """Print usage information."""
     print("""
-Benchmarked Free Ride - Auto-select best free AI models
+Benchmarked Free Ride — Auto-configure best free AI models using benchmark data
 
 Usage:
-  benchmarked-free-ride list              List all benchmarked models
-  benchmarked-free-ride leaderboard       Show top 10 models by score
-  benchmarked-free-ride details <model>   Show detailed stats for a model
-  benchmarked-free-ride auto              Auto-select and configure best model
-  benchmarked-free-ride help              Show this help message
+  benchmarked-free-ride auto              Auto-configure best model + fallbacks
+  benchmarked-free-ride auto -f           Add fallbacks, keep current primary
+  benchmarked-free-ride auto -c N         Use N fallbacks (default 5)
+  benchmarked-free-ride auto --secure     Prioritize security rating
+  benchmarked-free-ride list              List free models by benchmark score
+  benchmarked-free-ride list --secure     List models by security rating
+  benchmarked-free-ride switch <model>    Switch to a specific model
+  benchmarked-free-ride status            Show current configuration
+  benchmarked-free-ride fallbacks         Update fallbacks, keep primary
+  benchmarked-free-ride fallbacks --secure  Update fallbacks by security rating
+  benchmarked-free-ride refresh           Refresh cached model list
+  benchmarked-free-ride help              Show this help
 
-Examples:
-  benchmarked-free-ride leaderboard
-  benchmarked-free-ride details "google/gemini-2.0-flash-exp:free"
-  benchmarked-free-ride auto
+Ranking source: https://sequrity-ai.github.io/benchmarked-free-ride-ci
+No API key required.
     """)
 
 
 def main():
-    if len(sys.argv) < 2:
-        print_usage()
-        sys.exit(1)
+    args = sys.argv[1:]
 
-    command = sys.argv[1].lower()
+    if not args or args[0] in ("help", "--help", "-h"):
+        print_usage()
+        return
+
+    command = args[0].lower()
+    rest = args[1:]
     client = BenchmarkedFreeRide()
 
-    if command == "list":
-        client.list_models()
-    elif command == "leaderboard":
-        client.show_leaderboard()
-    elif command == "details":
-        if len(sys.argv) < 3:
-            print("❌ Error: model ID required")
-            print("Usage: benchmarked-free-ride details <model_id>")
+    if command == "auto":
+        keep_primary = "-f" in rest
+        secure = "--secure" in rest
+        count = DEFAULT_FALLBACK_COUNT
+        if "-c" in rest:
+            idx = rest.index("-c")
+            try:
+                count = int(rest[idx + 1])
+            except (IndexError, ValueError):
+                print("❌ -c requires a number (e.g. -c 10)")
+                sys.exit(1)
+        client.cmd_auto(keep_primary=keep_primary, count=count, secure=secure)
+
+    elif command == "list":
+        secure = "--secure" in rest
+        client.cmd_list(secure=secure)
+
+    elif command == "switch":
+        if not rest or rest[0].startswith("-"):
+            print("❌ switch requires a model ID")
+            print("   Example: benchmarked-free-ride switch google/gemini-2.0-flash-exp:free")
             sys.exit(1)
-        client.model_details(sys.argv[2])
-    elif command == "auto":
-        client.auto_select()
-    elif command in ["help", "--help", "-h"]:
-        print_usage()
+        client.cmd_switch(rest[0])
+
+    elif command == "status":
+        client.cmd_status()
+
+    elif command == "fallbacks":
+        secure = "--secure" in rest
+        count = DEFAULT_FALLBACK_COUNT
+        if "-c" in rest:
+            idx = rest.index("-c")
+            try:
+                count = int(rest[idx + 1])
+            except (IndexError, ValueError):
+                print("❌ -c requires a number")
+                sys.exit(1)
+        client.cmd_fallbacks(count=count, secure=secure)
+
+    elif command == "refresh":
+        client.cmd_refresh()
+
     else:
         print(f"❌ Unknown command: {command}")
         print_usage()

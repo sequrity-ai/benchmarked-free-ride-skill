@@ -15,13 +15,17 @@
   ],
   "skill_md": "SKILL.md",
   "commands": {
-    "default":    "Top 5 free models by composite (utility) score",
-    "--secure":   "Top 5 free models by prompt injection resistance (cracker_security_rate)",
-    "--fast":     "Top 5 free models by response latency",
-    "--balanced": "Top 5 by weighted score (utility 50% + security 30% + speed 20%)",
-    "--json":     "Machine-readable top 5 for scripting/automation",
-    "--details":  "Detailed benchmark breakdown for a specific model ID",
-    "--auto":     "Fetch top benchmarked model and configure OpenClaw to use it"
+    "auto":               "Auto-configure best free model with fallbacks",
+    "auto -f":            "Add fallbacks while keeping current primary model",
+    "auto -c N":          "Configure with N fallback options (default 5)",
+    "auto --secure":      "Auto-configure prioritizing security rating (cracker_security_rate)",
+    "list":               "View available free models ranked by benchmark score",
+    "list --secure":      "List models ranked by security rating",
+    "switch <model_id>":  "Switch to a specific model by ID",
+    "status":             "Check current model configuration",
+    "fallbacks":          "Update fallback models only (keep primary)",
+    "fallbacks --secure": "Update fallbacks prioritized by security rating",
+    "refresh":            "Force refresh cached model list"
   },
   "executables": {
     "benchmarked-free-ride": "main:main"
