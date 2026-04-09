@@ -68,38 +68,6 @@ class BenchmarkedFreeRide:
 
     def _write_config(self, primary: str, fallbacks: list[str]) -> bool:
         """Write primary + fallback model config to ~/.openclaw/config.json."""
-        # Try CLI first
-        try:
-            all_models = [primary] + fallbacks
-            result = subprocess.run(
-                ["openclaw", "config", "set", "agents.defaults.model.primary", primary],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr)
-
-            fb_json = json.dumps(fallbacks)
-            result = subprocess.run(
-                ["openclaw", "config", "set", "agents.defaults.model.fallbacks", fb_json],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr)
-
-            models_json = json.dumps(all_models)
-            result = subprocess.run(
-                ["openclaw", "config", "set", "agents.defaults.models", models_json],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr)
-
-            return True
-
-        except Exception:
-            pass
-
-        # Fallback: direct config file edit
         return self._write_config_file(primary, fallbacks)
 
     def _write_config_file(self, primary: str, fallbacks: list[str]) -> bool:
@@ -110,7 +78,6 @@ class BenchmarkedFreeRide:
             config.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})
             config["agents"]["defaults"]["model"]["primary"] = primary
             config["agents"]["defaults"]["model"]["fallbacks"] = fallbacks
-            config["agents"]["defaults"]["models"] = [primary] + fallbacks
             with open(config_path, "w") as f:
                 json.dump(config, f, indent=2)
             return True
@@ -120,21 +87,12 @@ class BenchmarkedFreeRide:
 
     def _write_primary_only(self, primary: str) -> bool:
         """Set only the primary model, preserve existing fallbacks."""
-        try:
-            result = subprocess.run(
-                ["openclaw", "config", "set", "agents.defaults.model.primary", primary],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode == 0:
-                return True
-        except Exception:
-            pass
-
         config_path = Path.home() / ".openclaw" / "config.json"
         try:
             config = self._read_config()
             config.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})
             config["agents"]["defaults"]["model"]["primary"] = primary
+            config_path.parent.mkdir(parents=True, exist_ok=True)
             with open(config_path, "w") as f:
                 json.dump(config, f, indent=2)
             return True
