@@ -90,7 +90,7 @@ def main():
         # 4. Seed a minimal openclaw config so 'status' has something to show
         run(sandbox, "mkdir -p /root/.openclaw", label="mkdir")
         seed_config = {"agents": {"defaults": {"model": {"primary": "", "fallbacks": []}}}}
-        sandbox.fs.upload_file(json.dumps(seed_config, indent=2).encode(), "/root/.openclaw/config.json")
+        sandbox.fs.upload_file(json.dumps(seed_config, indent=2).encode(), "/root/.openclaw/openclaw.json")
 
         # 5. Upload the skill (no pip install needed — stdlib only)
         SKILL_CMD = "python /opt/skill/main.py"
@@ -125,7 +125,7 @@ def main():
         check("auto shows done", "done" in out.lower() or "✅" in out)
 
         # Verify config was actually written
-        cfg_text = read_remote(sandbox, "/root/.openclaw/config.json")
+        cfg_text = read_remote(sandbox, "/root/.openclaw/openclaw.json")
         if cfg_text:
             cfg = json.loads(cfg_text)
             primary = cfg.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
@@ -135,7 +135,7 @@ def main():
             print(f"  primary = {primary}")
             print(f"  fallbacks = {fallbacks}")
         else:
-            check("config readable", False, "could not read config.json")
+            check("config readable", False, "could not read openclaw.json")
 
         # ── Test: status ─────────────────────────────────────────────────────
         print("\n── TEST: status ──")
@@ -157,7 +157,7 @@ def main():
             check("switch shows done", "done" in out.lower() or "✅" in out)
 
             # Verify config updated
-            cfg2 = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
+            cfg2 = json.loads(read_remote(sandbox, "/root/.openclaw/openclaw.json"))
             new_primary = cfg2.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
             check("switch updated primary", fb_model in new_primary, f"expected {fb_model}, got {new_primary}")
         else:
@@ -176,11 +176,11 @@ def main():
 
         # ── Test: auto -f (keep primary) ─────────────────────────────────────
         print("\n── TEST: auto -f ──")
-        cfg_before = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
+        cfg_before = json.loads(read_remote(sandbox, "/root/.openclaw/openclaw.json"))
         primary_before = cfg_before.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
         ec, out = run(sandbox, f"{SKILL_CMD} auto -f", label="auto-keep")
         check("auto -f exits 0", ec == 0)
-        cfg_after = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
+        cfg_after = json.loads(read_remote(sandbox, "/root/.openclaw/openclaw.json"))
         primary_after = cfg_after.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
         check("auto -f preserved primary", primary_before == primary_after,
               f"before={primary_before} after={primary_after}")
@@ -194,7 +194,7 @@ def main():
         print("\n── TEST: auto -c 3 ──")
         ec, out = run(sandbox, f"{SKILL_CMD} auto -c 3", label="auto-c3")
         check("auto -c 3 exits 0", ec == 0)
-        cfg3 = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
+        cfg3 = json.loads(read_remote(sandbox, "/root/.openclaw/openclaw.json"))
         fb3 = cfg3.get("agents", {}).get("defaults", {}).get("model", {}).get("fallbacks", [])
         check("auto -c 3 gives 3 fallbacks", len(fb3) == 3, f"got {len(fb3)}")
 
@@ -206,7 +206,7 @@ def main():
             run(sandbox, f"{SKILL_CMD} auto", label="e2e-auto")
 
             # Read back which model was selected
-            cfg_e2e = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
+            cfg_e2e = json.loads(read_remote(sandbox, "/root/.openclaw/openclaw.json"))
             e2e_primary = cfg_e2e.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
             e2e_fallbacks = cfg_e2e.get("agents", {}).get("defaults", {}).get("model", {}).get("fallbacks", [])
             # Strip openrouter/ prefix for the provider config model id

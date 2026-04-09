@@ -2,6 +2,11 @@
 name: benchmarked_free_ride
 description: "Pick the best free OpenRouter models using live benchmark CI results. Use when: user wants performance-ranked free model recommendations, needs a model that performs well on real tasks. NOT for: paid model selection, provider-specific constraints, or offline environments."
 homepage: https://sequrity-ai.github.io/benchmarked-free-ride-ci/
+network:
+  - sequrity-ai.github.io
+writes:
+  - ~/.openclaw/openclaw.json (keys: agents.defaults.model.primary, agents.defaults.model.fallbacks only)
+install: python main.py auto
 metadata:
   {
     "openclaw":

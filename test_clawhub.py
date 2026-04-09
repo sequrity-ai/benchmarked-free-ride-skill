@@ -109,7 +109,7 @@ def main():
         check("auto shows done", "done" in out.lower() or "\u2705" in out)
 
         # Verify config
-        cfg_text = read_remote(sandbox, "/root/.openclaw/config.json")
+        cfg_text = read_remote(sandbox, "/root/.openclaw/openclaw.json")
         if cfg_text:
             cfg = json.loads(cfg_text)
             primary = cfg.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
@@ -119,7 +119,7 @@ def main():
             print(f"  primary = {primary}")
             print(f"  fallbacks ({len(fallbacks)}) = {fallbacks[:3]}...")
         else:
-            check("config readable", False, "could not read config.json")
+            check("config readable", False, "could not read openclaw.json")
             primary, fallbacks = "", []
 
         # ── Test: status ─────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ def main():
             switch_target = fallbacks[0].removeprefix("openrouter/")
             ec, out = run(sandbox, f"{SKILL_CMD} switch {switch_target}", label="switch")
             check("switch exits 0", ec == 0)
-            cfg2 = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
+            cfg2 = json.loads(read_remote(sandbox, "/root/.openclaw/openclaw.json"))
             new_primary = cfg2.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
             check("switch updated primary", switch_target in new_primary, f"got {new_primary}")
         else:
@@ -146,7 +146,7 @@ def main():
 
             # Reset to auto config
             run(sandbox, f"{SKILL_CMD} auto", label="e2e-auto")
-            cfg_e2e = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
+            cfg_e2e = json.loads(read_remote(sandbox, "/root/.openclaw/openclaw.json"))
             e2e_model = cfg_e2e.get("agents", {}).get("defaults", {}).get("model", {})
 
             all_model_ids = [

@@ -87,7 +87,7 @@ See [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-r
 
 ### Config Written
 
-The skill writes to `~/.openclaw/config.json`:
+The skill writes to `~/.openclaw/openclaw.json`:
 
 ```json
 {

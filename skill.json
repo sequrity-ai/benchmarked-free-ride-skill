@@ -32,8 +32,10 @@
   "openclaw": {
     "compatible": true,
     "min_version": "1.0.0",
-    "config_paths": [
-      "agents.defaults.model"
+    "configPath": "~/.openclaw/openclaw.json",
+    "configKeys": [
+      "agents.defaults.model.primary",
+      "agents.defaults.model.fallbacks"
     ]
   },
   "external_apis": {

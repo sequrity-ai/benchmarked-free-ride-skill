@@ -57,7 +57,7 @@ class BenchmarkedFreeRide:
 
     def _read_config(self) -> dict:
         """Read current OpenClaw config."""
-        config_path = Path.home() / ".openclaw" / "config.json"
+        config_path = Path.home() / ".openclaw" / "openclaw.json"
         if not config_path.exists():
             return {}
         try:
@@ -67,12 +67,12 @@ class BenchmarkedFreeRide:
             return {}
 
     def _write_config(self, primary: str, fallbacks: list[str]) -> bool:
-        """Write primary + fallback model config to ~/.openclaw/config.json."""
+        """Write primary + fallback model config to ~/.openclaw/openclaw.json."""
         return self._write_config_file(primary, fallbacks)
 
     def _write_config_file(self, primary: str, fallbacks: list[str]) -> bool:
-        """Directly modify ~/.openclaw/config.json."""
-        config_path = Path.home() / ".openclaw" / "config.json"
+        """Directly modify ~/.openclaw/openclaw.json."""
+        config_path = Path.home() / ".openclaw" / "openclaw.json"
         try:
             config = self._read_config()
             config.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})
@@ -87,7 +87,7 @@ class BenchmarkedFreeRide:
 
     def _write_primary_only(self, primary: str) -> bool:
         """Set only the primary model, preserve existing fallbacks."""
-        config_path = Path.home() / ".openclaw" / "config.json"
+        config_path = Path.home() / ".openclaw" / "openclaw.json"
         try:
             config = self._read_config()
             config.setdefault("agents", {}).setdefault("defaults", {}).setdefault("model", {})
