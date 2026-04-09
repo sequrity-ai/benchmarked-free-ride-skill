@@ -12,86 +12,40 @@ This skill connects to the [benchmarked-free-ride-ci](https://github.com/sequrit
 3. **Switch** to a specific model instantly
 4. **Manage fallbacks** independently from the primary model
 
+No external dependencies — uses only Python stdlib.
+
 ---
 
 ## Installation
 
 ```bash
-# Install via clawhub (recommended)
-clawhub install sequrity-ai/benchmarked-free-ride
+# Install from ClawHub (recommended)
+npx clawhub@latest install benchmarked-free-ride
 
-# Or install locally from this repo
-pip install -e .
+# Then run via:
+python ~/.openclaw/skills/benchmarked-free-ride/main.py auto
 ```
 
 ---
 
 ## Usage
 
-### Auto-configure best model + fallbacks
-
 ```bash
-benchmarked-free-ride auto
-```
+# Shorthand used below — adjust path to your install location
+alias bfr="python ~/.openclaw/skills/benchmarked-free-ride/main.py"
 
-### Auto-configure, keep existing primary — update fallbacks only
-
-```bash
-benchmarked-free-ride auto -f
-```
-
-### Auto-configure with custom fallback count
-
-```bash
-benchmarked-free-ride auto -c 10
-```
-
-### Auto-configure prioritizing security (prompt injection resistance)
-
-```bash
-benchmarked-free-ride auto --secure
-```
-
-### List all free models ranked by benchmark score
-
-```bash
-benchmarked-free-ride list
-```
-
-### List models ranked by security rating
-
-```bash
-benchmarked-free-ride list --secure
-```
-
-### Switch primary model to a specific model
-
-```bash
-benchmarked-free-ride switch google/gemini-2.0-flash-exp:free
-```
-
-### Show current model configuration
-
-```bash
-benchmarked-free-ride status
-```
-
-### Update fallback models only (keep existing primary)
-
-```bash
-benchmarked-free-ride fallbacks
-```
-
-### Update fallbacks prioritized by security rating
-
-```bash
-benchmarked-free-ride fallbacks --secure
-```
-
-### Force refresh cached model list
-
-```bash
-benchmarked-free-ride refresh
+bfr auto                  # Auto-configure best model + fallbacks
+bfr auto -f               # Add fallbacks, keep current primary
+bfr auto -c 10            # Configure with 10 fallbacks (default 5)
+bfr auto --secure         # Prioritize security rating
+bfr list                  # List free models by benchmark score
+bfr list --secure         # List models by security rating
+bfr switch <model_id>     # Switch to a specific model
+bfr status                # Show current configuration
+bfr fallbacks             # Update fallbacks, keep primary
+bfr fallbacks --secure    # Update fallbacks by security rating
+bfr refresh               # Force refresh cached model list
+bfr help                  # Show help
 ```
 
 ---
@@ -100,15 +54,15 @@ benchmarked-free-ride refresh
 
 | Goal | Command | Sort key |
 |------|---------|----------|
-| Best overall utility + fallbacks | `auto` | `composite_score` ↓ |
-| Security-focused auto-configure | `auto --secure` | `cracker_security_rate` ↓ |
-| Keep primary, update fallbacks | `auto -f` | `composite_score` ↓ |
-| View ranked model list | `list` | `composite_score` ↓ |
-| View security-ranked list | `list --secure` | `cracker_security_rate` ↓ |
-| Switch to specific model | `switch <model_id>` | — |
-| Show current config | `status` | — |
-| Update fallbacks only | `fallbacks` | `composite_score` ↓ |
-| Refresh model cache | `refresh` | — |
+| Best overall utility + fallbacks | `auto` | `composite_score` |
+| Security-focused auto-configure | `auto --secure` | `cracker_security_rate` |
+| Keep primary, update fallbacks | `auto -f` | `composite_score` |
+| View ranked model list | `list` | `composite_score` |
+| View security-ranked list | `list --secure` | `cracker_security_rate` |
+| Switch to specific model | `switch <model_id>` | -- |
+| Show current config | `status` | -- |
+| Update fallbacks only | `fallbacks` | `composite_score` |
+| Refresh model cache | `refresh` | -- |
 
 ---
 
@@ -117,32 +71,35 @@ benchmarked-free-ride refresh
 ### Data Source
 
 Fetches from the public GitHub Pages API — **no API key required**:
-- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json` — ranked leaderboard
-- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/models.json` — detailed per-model stats
+- `https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json`
 
 Updated every 2 days by automated CI benchmarks.
 
 ### Scoring System
 
-Models are ranked by **composite score** (0–100):
+Models are ranked by **composite score** (0-100):
 
-- **Accuracy** (70% weight) — Task success rate across benchmarks
-- **Latency** (20% weight) — Response speed (lower is better)
-- **Token Efficiency** (10% weight) — Output tokens per task (lower is better)
+- **Accuracy** (70% weight) -- Task success rate across benchmarks
+- **Latency** (20% weight) -- Response speed (lower is better)
+- **Token Efficiency** (10% weight) -- Output tokens per task (lower is better)
 
 See [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) for methodology.
 
-### Config Keys Set
+### Config Written
+
+The skill writes to `~/.openclaw/config.json`:
 
 ```json
 {
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openrouter/google/gemini-2.0-flash-exp:free",
-        "fallbacks": ["openrouter/...", "openrouter/..."]
-      },
-      "models": ["openrouter/...", "openrouter/..."]
+        "primary": "openrouter/openai/gpt-oss-120b:free",
+        "fallbacks": [
+          "openrouter/nvidia/nemotron-3-nano-30b-a3b:free",
+          "openrouter/z-ai/glm-4.5-air:free"
+        ]
+      }
     }
   }
 }
@@ -150,42 +107,81 @@ See [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-r
 
 ---
 
-## Comparison with FreeRide
-
-| Feature | FreeRide | Benchmarked Free Ride |
-|---------|----------|----------------------|
-| Model discovery | ✅ OpenRouter API | ✅ GitHub Pages CI API |
-| Ranking criteria | Context, capabilities, recency | **Actual benchmark performance** |
-| Security ranking | ✅ (`--secure`) | ✅ (`--secure`) |
-| Primary + fallbacks config | ✅ | ✅ |
-| No API key required | ❌ (needs OPENROUTER_API_KEY) | ✅ |
-| Public leaderboard | ✅ | ✅ |
-
----
-
 ## Development
 
-### Local Testing
+### Prerequisites
+
+- Python 3.9+ (no pip dependencies)
+- Node.js (for openclaw and clawhub CLI)
+- A [Daytona](https://www.daytona.io/) API key (for running integration tests)
+
+### Project Structure
+
+```
+main.py              Core skill logic (single file, stdlib only)
+setup.py             Package metadata and console_scripts entry point
+SKILL.md             ClawHub skill manifest (frontmatter + usage docs)
+skill.json           Skill metadata
+test_daytona.py      Integration test: uploads main.py to Daytona sandbox
+test_clawhub.py      Integration test: installs from ClawHub registry
+```
+
+### Running Locally
 
 ```bash
-pip install -e .
-benchmarked-free-ride list
-benchmarked-free-ride auto
-benchmarked-free-ride status
+# Just run the script directly
+python main.py list
+python main.py auto
+python main.py status
 ```
+
+### Running Integration Tests
+
+Tests spin up a Daytona sandbox with real openclaw installed.
+
+```bash
+# One-time: create a venv with the test dependency
+uv venv .venv && uv pip install daytona-sdk --python .venv/bin/python
+
+# Test the skill from local source
+DAYTONA_API_KEY=<your-key> .venv/bin/python test_daytona.py
+
+# Test the skill installed from ClawHub
+DAYTONA_API_KEY=<your-key> .venv/bin/python test_clawhub.py
+
+# Include E2E test (openclaw actually calls OpenRouter)
+DAYTONA_API_KEY=<your-key> OPENROUTER_API_KEY=<your-key> .venv/bin/python test_daytona.py
+```
+
+### Making Changes
+
+1. Edit `main.py` (keep it stdlib-only — no pip dependencies)
+2. Run `test_daytona.py` to verify all commands work
+3. Commit and push to `main`
 
 ### Publishing to ClawHub
 
 ```bash
-clawhub skill publish . \
+# Bump the version, write a changelog, and publish
+npx clawhub@latest publish . \
   --slug benchmarked-free-ride \
   --name "Benchmarked Free Ride" \
-  --version 1.2.0 \
-  --changelog "Align with free-ride CLI interface: auto/list/switch/status/fallbacks/refresh commands; add --secure flag; set primary+fallbacks config" \
-  --tags "free-models,openrouter,benchmark,model-selection,leaderboard"
+  --version <new-version> \
+  --changelog "<what changed>" \
+  --tags latest
+
+# Verify it's live
+npx clawhub@latest inspect benchmarked-free-ride
 ```
 
-Run with `--dry-run` first to validate the manifest before publishing.
+After publishing, run `test_clawhub.py` to verify the published version installs and works correctly from the registry.
+
+### Version History
+
+| Version | Changes |
+|---------|---------|
+| 1.1.0 | Remove `requests` dep, use stdlib `urllib`; add ClawHub test |
+| 1.0.0 | Initial release: auto/list/switch/status/fallbacks/refresh |
 
 ---
 
@@ -193,36 +189,35 @@ Run with `--dry-run` first to validate the manifest before publishing.
 
 ### "No benchmarked free models found"
 
-**Cause:** The leaderboard has no models matching `:free` + `is_benchmarked == true`.
-
-**Fix:** Check the live leaderboard:
+The leaderboard has no models matching `:free` + `is_benchmarked == true`.
+Check the live data:
 ```bash
-curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len([m for m in d['leaderboard'] if ':free' in m.get('model_id','') and m.get('is_benchmarked')]))"
+curl -s "https://sequrity-ai.github.io/benchmarked-free-ride-ci/api/leaderboard.json" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+free = [m for m in d['leaderboard'] if ':free' in m.get('model_id','') and m.get('is_benchmarked')]
+print(f'{len(free)} free benchmarked models')
+"
 ```
 
 ### "Model not found" in switch
 
-**Cause:** Model ID typo or model not in leaderboard.
-
-**Fix:** Run `benchmarked-free-ride list` to see available model IDs.
+Model ID typo or model not in leaderboard. Run `python main.py list` to see available IDs.
 
 ### "Failed to configure model"
 
-**Cause:** `openclaw` CLI not on PATH or config file not writable.
-
-**Fix:**
+Config directory not writable. Ensure `~/.openclaw/` exists:
 ```bash
-which openclaw   # verify it's on PATH
-ls ~/.openclaw/config.json   # verify config file exists
+mkdir -p ~/.openclaw
 ```
 
 ---
 
 ## Related Projects
 
-- [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) — CI runner that generates benchmarks
-- [FreeRide](https://playbooks.com/skills/openclaw/skills/free-ride) — Reference skill this was modeled after
-- [OpenClaw](https://github.com/openclaw/openclaw) — AI agent framework
+- [benchmarked-free-ride-ci](https://github.com/sequrity-ai/benchmarked-free-ride-ci) -- CI runner that generates benchmarks
+- [OpenClaw](https://github.com/openclaw/openclaw) -- AI agent framework
+- [ClawHub](https://clawhub.ai/) -- Skill registry
 
 ---
 

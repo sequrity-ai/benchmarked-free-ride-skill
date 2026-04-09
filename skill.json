@@ -1,6 +1,6 @@
 {
   "name": "benchmarked-free-ride",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Auto-configure best free AI models based on benchmarked quality scores from daily CI runs",
   "author": "Sequrity",
   "license": "MIT",
@@ -27,12 +27,8 @@
     "fallbacks --secure": "Update fallbacks prioritized by security rating",
     "refresh":            "Force refresh cached model list"
   },
-  "executables": {
-    "benchmarked-free-ride": "main:main"
-  },
-  "dependencies": {
-    "requests": ">=2.31.0"
-  },
+  "entrypoint": "python main.py",
+  "dependencies": {},
   "openclaw": {
     "compatible": true,
     "min_version": "1.0.0",
@@ -50,11 +46,11 @@
   },
   "installation": {
     "steps": [
-      "pip install -e ."
+      "npx clawhub@latest install benchmarked-free-ride"
     ],
     "post_install": [
-      "Run 'benchmarked-free-ride leaderboard' to see available models",
-      "Run 'benchmarked-free-ride auto' to configure the best model"
+      "Run 'python main.py list' to see available models",
+      "Run 'python main.py auto' to configure the best model"
     ]
   }
 }
