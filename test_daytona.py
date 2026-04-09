@@ -77,9 +77,8 @@ def main():
     try:
         # 2. Install Python (the node image doesn't have it)
         print("\n📦 Installing Python...")
-        run(sandbox, "apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv > /dev/null 2>&1",
+        run(sandbox, "apt-get update -qq && apt-get install -y -qq python3 > /dev/null 2>&1",
             timeout=180, label="apt-python")
-        # Make 'python' and 'pip' available
         run(sandbox, "ln -sf $(which python3) /usr/local/bin/python; python --version", label="python-ver")
 
         # 3. Install openclaw
@@ -90,40 +89,37 @@ def main():
 
         # 4. Seed a minimal openclaw config so 'status' has something to show
         run(sandbox, "mkdir -p /root/.openclaw", label="mkdir")
-        seed_config = {"agents": {"defaults": {"model": {"primary": "", "fallbacks": []}, "models": []}}}
+        seed_config = {"agents": {"defaults": {"model": {"primary": "", "fallbacks": []}}}}
         sandbox.fs.upload_file(json.dumps(seed_config, indent=2).encode(), "/root/.openclaw/config.json")
 
-        # 5. Upload the skill and install it
-        print("\n📦 Installing benchmarked-free-ride skill...")
-        for fname in ("main.py", "setup.py", "requirements.txt"):
-            local = os.path.join(SKILL_DIR, fname)
-            if os.path.exists(local):
-                upload_file(sandbox, local, f"/opt/skill/{fname}")
-        run(sandbox, "pip install --break-system-packages -e /opt/skill", timeout=60, label="pip-skill")
-        ec, _ = run(sandbox, "benchmarked-free-ride help", label="help")
+        # 5. Upload the skill (no pip install needed — stdlib only)
+        SKILL_CMD = "python /opt/skill/main.py"
+        print("\n📦 Uploading benchmarked-free-ride skill...")
+        upload_file(sandbox, os.path.join(SKILL_DIR, "main.py"), "/opt/skill/main.py")
+        ec, _ = run(sandbox, f"{SKILL_CMD} help", label="help")
         check("skill installed", ec == 0)
 
         # ── Test: list ───────────────────────────────────────────────────────
         print("\n── TEST: list ──")
-        ec, out = run(sandbox, "benchmarked-free-ride list", label="list")
+        ec, out = run(sandbox, f"{SKILL_CMD} list", label="list")
         check("list exits 0", ec == 0)
         check("list shows models", ":free" in out, "no :free models in output")
 
         # ── Test: list --secure ──────────────────────────────────────────────
         print("\n── TEST: list --secure ──")
-        ec, out = run(sandbox, "benchmarked-free-ride list --secure", label="list-secure")
+        ec, out = run(sandbox, f"{SKILL_CMD} list --secure", label="list-secure")
         check("list --secure exits 0", ec == 0)
         check("list --secure shows security", "security" in out.lower(), "no security label")
 
         # ── Test: refresh ────────────────────────────────────────────────────
         print("\n── TEST: refresh ──")
-        ec, out = run(sandbox, "benchmarked-free-ride refresh", label="refresh")
+        ec, out = run(sandbox, f"{SKILL_CMD} refresh", label="refresh")
         check("refresh exits 0", ec == 0)
         check("refresh fetched models", "benchmarked free models" in out.lower())
 
         # ── Test: auto ───────────────────────────────────────────────────────
         print("\n── TEST: auto ──")
-        ec, out = run(sandbox, "benchmarked-free-ride auto", label="auto")
+        ec, out = run(sandbox, f"{SKILL_CMD} auto", label="auto")
         check("auto exits 0", ec == 0)
         check("auto sets primary", "primary" in out.lower())
         check("auto shows done", "done" in out.lower() or "✅" in out)
@@ -143,7 +139,7 @@ def main():
 
         # ── Test: status ─────────────────────────────────────────────────────
         print("\n── TEST: status ──")
-        ec, out = run(sandbox, "benchmarked-free-ride status", label="status")
+        ec, out = run(sandbox, f"{SKILL_CMD} status", label="status")
         check("status exits 0", ec == 0)
         check("status shows primary", "primary" in out.lower())
 
@@ -156,7 +152,7 @@ def main():
             fb_model = None
 
         if fb_model:
-            ec, out = run(sandbox, f"benchmarked-free-ride switch {fb_model}", label="switch")
+            ec, out = run(sandbox, f"{SKILL_CMD} switch {fb_model}", label="switch")
             check("switch exits 0", ec == 0)
             check("switch shows done", "done" in out.lower() or "✅" in out)
 
@@ -169,20 +165,20 @@ def main():
 
         # ── Test: fallbacks ──────────────────────────────────────────────────
         print("\n── TEST: fallbacks ──")
-        ec, out = run(sandbox, "benchmarked-free-ride fallbacks", label="fallbacks")
+        ec, out = run(sandbox, f"{SKILL_CMD} fallbacks", label="fallbacks")
         check("fallbacks exits 0", ec == 0)
         check("fallbacks shows done", "done" in out.lower() or "✅" in out)
 
         # ── Test: fallbacks --secure ─────────────────────────────────────────
         print("\n── TEST: fallbacks --secure ──")
-        ec, out = run(sandbox, "benchmarked-free-ride fallbacks --secure", label="fallbacks-secure")
+        ec, out = run(sandbox, f"{SKILL_CMD} fallbacks --secure", label="fallbacks-secure")
         check("fallbacks --secure exits 0", ec == 0)
 
         # ── Test: auto -f (keep primary) ─────────────────────────────────────
         print("\n── TEST: auto -f ──")
         cfg_before = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
         primary_before = cfg_before.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
-        ec, out = run(sandbox, "benchmarked-free-ride auto -f", label="auto-keep")
+        ec, out = run(sandbox, f"{SKILL_CMD} auto -f", label="auto-keep")
         check("auto -f exits 0", ec == 0)
         cfg_after = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
         primary_after = cfg_after.get("agents", {}).get("defaults", {}).get("model", {}).get("primary", "")
@@ -191,12 +187,12 @@ def main():
 
         # ── Test: auto --secure ──────────────────────────────────────────────
         print("\n── TEST: auto --secure ──")
-        ec, out = run(sandbox, "benchmarked-free-ride auto --secure", label="auto-secure")
+        ec, out = run(sandbox, f"{SKILL_CMD} auto --secure", label="auto-secure")
         check("auto --secure exits 0", ec == 0)
 
         # ── Test: auto -c 3 ──────────────────────────────────────────────────
         print("\n── TEST: auto -c 3 ──")
-        ec, out = run(sandbox, "benchmarked-free-ride auto -c 3", label="auto-c3")
+        ec, out = run(sandbox, f"{SKILL_CMD} auto -c 3", label="auto-c3")
         check("auto -c 3 exits 0", ec == 0)
         cfg3 = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))
         fb3 = cfg3.get("agents", {}).get("defaults", {}).get("model", {}).get("fallbacks", [])
@@ -207,7 +203,7 @@ def main():
             print("\n── TEST: E2E openclaw agent with free model ──")
 
             # First, run auto to pick the best model
-            run(sandbox, "benchmarked-free-ride auto", label="e2e-auto")
+            run(sandbox, f"{SKILL_CMD} auto", label="e2e-auto")
 
             # Read back which model was selected
             cfg_e2e = json.loads(read_remote(sandbox, "/root/.openclaw/config.json"))

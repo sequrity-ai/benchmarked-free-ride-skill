@@ -6,9 +6,7 @@ setup(
     description="Auto-configure best free AI models based on benchmarked quality scores",
     author="Sequrity",
     py_modules=["main"],
-    install_requires=[
-        "requests>=2.31.0",
-    ],
+    install_requires=[],
     entry_points={
         "console_scripts": [
             "benchmarked-free-ride=main:main",

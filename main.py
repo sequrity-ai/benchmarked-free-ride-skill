@@ -9,7 +9,8 @@ not proxies like context length or recency.
 
 import sys
 import json
-import subprocess
+import urllib.request
+import urllib.error
 from pathlib import Path
 from typing import Optional
 
@@ -29,11 +30,10 @@ class BenchmarkedFreeRide:
         if self._leaderboard_cache is not None and not force:
             return self._leaderboard_cache
 
-        import requests
         try:
-            response = requests.get(f"{self.api_url}/leaderboard.json", timeout=10)
-            response.raise_for_status()
-            data = response.json()
+            req = urllib.request.Request(f"{self.api_url}/leaderboard.json")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
         except Exception as e:
             print(f"❌ Error fetching leaderboard: {e}")
             sys.exit(1)

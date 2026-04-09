@@ -7,17 +7,7 @@ metadata:
     "openclaw":
       {
         "emoji": "🏆",
-        "requires": { "bins": ["benchmarked-free-ride"] },
-        "install":
-          [
-            {
-              "id": "pip-benchmarked-free-ride",
-              "kind": "pip",
-              "package": "benchmarked-free-ride",
-              "bins": ["benchmarked-free-ride"],
-              "label": "Install benchmarked-free-ride (pip)",
-            },
-          ],
+        "requires": { "bins": ["python3"] },
       },
   }
 ---
